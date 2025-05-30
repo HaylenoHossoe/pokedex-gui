@@ -26,7 +26,7 @@ jobs:
       run: npm install
 
     # 4. Rodar os testes (Opcional, pode ser removido se não for necessário)
-     - name: Run tests
+    - name: Run tests
       run: npm run test
 
     # 5. Iniciar o servidor
