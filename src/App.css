@@ -1,38 +1,279 @@
-.App {
+.app-container {
   text-align: center;
+  background-color: #fff; /* Fundo branco para o card principal */
+  border-radius: 10px; /* Borda levemente arredondada */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra suave */
+  padding: 30px;
+  margin: 20px auto;
+  border: 2px solid #ef5350; /* Borda vermelha */
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.app-header {
+  display: flex; /* Transforma o cabeçalho em um container flexível */
+  flex-direction: column; /* Organiza os itens (logo e h1) em coluna */
+  align-items: center; /* Centraliza os itens horizontalmente */
+  gap: 10px; /* Adiciona um espaço de 10px entre o logo e o h1 */
+  margin-bottom: 25px; /* Mantém a margem inferior existente */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.pokemon-logo {
+  max-width: 250px; /* Ajuste o tamanho máximo do logo conforme desejar */
+  height: auto; /* Mantém a proporção da imagem */
+  margin-bottom: 10px; /* Adiciona uma pequena margem abaixo do logo, se necessário */
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.app-header h1 {
+  color: #ef5350; /* Vermelho Pokémon */
+  font-size: 2.5em; /* Tamanho da fonte como o aleatório */
+  margin-bottom: 0; /* Remove a margem inferior para que o 'gap' do flexbox controle o espaçamento */
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pokemon-search-card {
+  background-color: #fdfdfd; /* Fundo ligeiramente off-white para o card interno */
+  padding: 25px;
+  border-radius: 8px;
+  border: 1px solid #eee; /* Borda sutil */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); /* Sombra interna suave */
+}
+
+.search-controls {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  gap: 15px;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+}
+
+.pokemon-input {
+  flex-grow: 1;
+  padding: 10px 15px; /* Padding levemente menor */
+  border: 1px solid #ddd; /* Borda mais suave */
+  border-radius: 5px; /* Menos arredondado */
+  font-size: 1em; /* Tamanho da fonte padrão */
+  max-width: 300px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05); /* Sombra interna mais suave */
+}
+
+.pokemon-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); /* Sombra azul mais suave */
+}
+
+.search-button {
+  background-color: #3498db; /* Azul */
   color: white;
+  padding: 10px 20px; /* Padding levemente menor */
+  border: none;
+  border-radius: 5px; /* Menos arredondado */
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra mais suave */
 }
 
-.App-link {
-  color: #61dafb;
+.search-button:hover:not(:disabled) {
+  background-color: #2980b9;
+  transform: translateY(-1px); /* Efeito de elevação sutil */
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.search-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pokemon-display {
+  margin-top: 20px;
+}
+
+.pokemon-sprite {
+  width: 150px; /* Tamanho do sprite como o aleatório */
+  height: 150px;
+  image-rendering: pixelated;
+  margin-bottom: 15px;
+  background-color: #e0f2f7; /* Fundo do círculo como o aleatório */
+  border-radius: 50%;
+  border: 3px solid #6390F0; /* Borda azul mais clara e sutil */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Sombra mais suave */
+  transition: transform 0.3s ease-in-out;
+}
+
+.pokemon-sprite:hover {
+    transform: scale(1.05);
+}
+
+.pokemon-display h2 {
+  color: #333; /* Cor mais escura para o nome */
+  font-size: 2.2em; /* Tamanho da fonte como o aleatório */
+  text-transform: capitalize;
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+
+.pokemon-id {
+  font-size: 1.2em; /* Tamanho da fonte como o aleatório */
+  color: #777;
+  margin-bottom: 15px;
+}
+
+.pokemon-types {
+  margin-bottom: 20px; /* Margem como o aleatório */
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 5px 12px; /* Padding como o aleatório */
+  border-radius: 15px; /* Arredondamento como o aleatório */
+  font-size: 0.9em; /* Tamanho da fonte como o aleatório */
+  font-weight: bold;
+  color: white;
+  text-transform: capitalize;
+  margin: 0 5px; /* Margem como o aleatório */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Cores dos tipos */
+.type-grass { background-color: #7AC74C; }
+.type-fire { background-color: #EE8130; }
+.type-water { background-color: #6390F0; }
+.type-electric { background-color: #F7D02C; }
+.type-normal { background-color: #A8A77A; }
+.type-poison { background-color: #A33EA1; }
+.type-flying { background-color: #A98FF3; }
+.type-bug { background-color: #A6B91A; }
+.type-fairy { background-color: #D685AD; }
+.type-psychic { background-color: #F95587; }
+.type-rock { background-color: #B6A136; }
+.type-ground { background-color: #E2BF65; }
+.type-ghost { background-color: #735A97; }
+.type-dragon { background-color: #6F35FC; }
+.type-steel { background-color: #B7B7CE; }
+.type-fighting { background-color: #C22E28; }
+.type-ice { background-color: #96D9D6; }
+
+
+/* ESTILOS PARA OS NOVOS DADOS (ALTURA, PESO, HABILIDADES, ESTATÍSTICAS) */
+
+.pokemon-details-grid {
+    display: flex;
+    justify-content: center;
+    gap: 20px; /* Reduzir o gap para ficar mais compacto */
+    margin-bottom: 15px; /* Reduzir margem */
+    font-size: 1em; /* Tamanho padrão */
+    color: #555;
+    flex-wrap: wrap; /* Para quebrar linha em telas pequenas */
+}
+
+.pokemon-details-grid p {
+    margin: 0; /* Remover margem padrão dos parágrafos */
+}
+
+.pokemon-details-grid strong {
+    color: #333;
+}
+
+.pokemon-abilities, .pokemon-stats {
+    text-align: left;
+    margin-top: 25px; /* Margem superior ajustada */
+    padding: 0 15px; /* Padding lateral ajustado */
+}
+
+.pokemon-abilities h3, .pokemon-stats h3 {
+    color: #007bff; /* Azul padrão */
+    font-size: 1.5em; /* Tamanho da fonte ajustado */
+    border-bottom: 1px solid #eee; /* Borda mais fina */
+    padding-bottom: 5px; /* Padding menor */
+    margin-bottom: 10px; /* Margem menor */
+}
+
+.pokemon-abilities ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* Gap menor */
+    justify-content: center;
+}
+
+.pokemon-abilities li {
+    background-color: #f0f0f0; /* Fundo mais claro */
+    border: 1px solid #e0e0e0;
+    padding: 6px 12px; /* Padding ajustado */
+    border-radius: 15px; /* Arredondamento ajustado */
+    text-transform: capitalize;
+    font-size: 0.85em; /* Fonte menor */
+    color: #444;
+    box-shadow: 0 0 2px rgba(0,0,0,0.05); /* Sombra mais sutil */
+}
+
+.pokemon-stats {
+    margin-bottom: 15px; /* Margem ajustada */
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px; /* Margem menor */
+    font-size: 0.95em; /* Fonte ligeiramente menor */
+}
+
+.stat-name {
+    width: 90px; /* Largura ajustada */
+    text-align: right;
+    margin-right: 10px; /* Margem ajustada */
+    color: #666;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+
+.stat-value {
+    width: 30px; /* Largura ajustada */
+    text-align: right;
+    margin-right: 8px; /* Margem ajustada */
+    font-weight: bold;
+    color: #333;
+}
+
+.stat-bar-container {
+    flex-grow: 1;
+    height: 12px; /* Altura da barra ajustada */
+    background-color: #e0e0e0;
+    border-radius: 6px; /* Arredondamento ajustado */
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    height: 100%;
+    background-color: #4CAF50; /* Verde padrão */
+    border-radius: 6px; /* Arredondamento ajustado */
+    transition: width 0.5s ease-in-out;
+}
+
+.status-message {
+  font-style: italic;
+  color: #888;
+  padding: 12px; /* Padding ajustado */
+  border-radius: 5px;
+  background-color: #f0f8ff;
+  border: 1px solid #cceeff;
+  font-size: 0.95em; /* Fonte ajustada */
+}
+
+.error-message {
+  color: #e74c3c;
+  font-weight: bold;
+  padding: 12px; /* Padding ajustado */
+  border-radius: 5px;
+  background-color: #ffe0e0;
+  border: 1px solid #ffb3b3;
+  font-size: 0.95em; /* Fonte ajustada */
+}
+
+.app-footer {
+  margin-top: 25px; /* Margem ajustada */
+  font-size: 0.8em; /* Fonte ligeiramente menor */
+  color: #888;
 }
