@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template for Pokedex Gui React application hosted on S3 and CloudFront.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name for the S3 bucket where the React app will be hosted. Must be globally unique.
+    Default: pokedex-gui-frontend-bucket # Sugestão de nome, mude se já existir ou use algo único
+  CloudFrontOriginAccessIdentity:
+    Type: String
+    Description: Existing CloudFront Origin Access Identity (OAI) for S3 bucket access.
+    Default: E3LXXXXXXXXXXX # <<<<<<<<<<<<<<<< Substitua por um OAI existente ou crie um novo.
+                            # Para AWS Academy, é comum que a conta já tenha um OAI.
+                            # Se não tiver, você precisará criar um manualmente OU
+                            # adicionar um recurso para criá-lo no template (mais complexo para iniciar).
+
+Resources:
+  # S3 Bucket para hospedar o frontend React
+  FrontendS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: Private # OAI fará o acesso
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html # Para SPAs como React, todas as rotas caem em index.html
+
+  # Políticas para o S3 Bucket para permitir acesso do CloudFront via OAI
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendS3Bucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}'
+            Action: s3:GetObject
+            Resource: !Sub 'arn:aws:s3:::${FrontendS3Bucket}/*'
+
+  # Distribuição CloudFront para servir o conteúdo do S3
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: FrontendS3Origin
+            DomainName: !GetAtt FrontendS3Bucket.RegionalDomainName # Usar o RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+        Enabled: 'true'
+        DefaultRootObject: index.html
+        CustomErrorResponses: # Redirecionar erros 403/404 para index.html para roteamento SPA
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: FrontendS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          ForwardedValues:
+            QueryString: 'false'
+            Cookies:
+              Forward: none
+        ViewerCert:
+          CloudFrontDefaultCertificate: 'true'
+
+Outputs:
+  S3BucketName:
+    Description: Name of the S3 bucket hosting the React app.
+    Value: !Ref FrontendS3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketName'
+  CloudFrontDomainName:
+    Description: Domain name of the CloudFront distribution.
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDomainName'

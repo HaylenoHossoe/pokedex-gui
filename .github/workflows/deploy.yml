@@ -1,0 +1,67 @@
+name: Pokédex Gui - DevOps - Deploy na AWS
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  # id-token: write # Remova ou comente esta linha se der erro ou se não usar OIDC na Academy
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build React App
+        run: npm run build
+        env:
+          CI: false
+
+      # Configuração de credenciais AWS usando secrets do GitHub
+      - name: Configure AWS Credentials for Academy
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1 # CONFIRME SUA REGIÃO DA ACADEMY AQUI
+
+      # Criar/Atualizar CloudFormation Stack
+      - name: Deploy CloudFormation Stack
+        uses: aws-actions/aws-cloudformation-deploy@v1
+        with:
+          name: PokedexGuiStack # Nome da sua stack
+          template: cloudformation-template.yml
+          parameter-overrides: |
+            BucketName=pokedex-gui-frontend-bucket-seunomeunico-2025-05-30-2150 # <<<<<<<<<<<<<<<< ATUALIZE ESTE NOME TAMBÉM AQUI ou remova a linha para usar o default do template
+          # Remova ou comente a linha abaixo, pois OAI não é mais um parâmetro
+          # CloudFrontOriginAccessIdentity=${{ secrets.OAI_ID }}
+
+      - name: Sync S3 Bucket
+        run: |
+          # O comando abaixo está ok, ele buscará o nome do bucket do CloudFormation Outputs
+          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
+          --delete
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          # O comando abaixo está ok, ele buscará o ID da distribuição do CloudFront Outputs
+          CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' --output text)
+          CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='$CLOUDFRONT_DOMAIN'].Id" --output text)
+
+          if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+            echo "Erro: Não foi possível obter o ID da distribuição CloudFront. Verifique o nome do domínio ou a existência da stack."
+            exit 1
+          fi
+
+          echo "Invalidando cache para a distribuição CloudFront ID: $CLOUDFRONT_DISTRIBUTION_ID"
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"

@@ -1,9 +1,9 @@
-name: DevOps Integração Contínua
+name: Pokédex Gui - DevOps - Integração Contínua
 # Definir os gatilhos para o workflow
 on:
   push:
     branches:
-      - main  # Ou qualquer outra branch que deseja monitorar
+      - main
 
 # Configuração das jobs do workflow
 jobs:
@@ -15,26 +15,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    # 2. Configurar Node.js (Exemplo de aplicação Node.js)
- #   - name: Set up Node.js
- #     uses: actions/setup-node@v2
- #     with:
- #       node-version: '22'  # Ou qualquer versão necessária para o seu app
-
-    # 3. Instalar dependências
+    # 2. Instalar dependências
     - name: Install dependencies
       run: npm install
 
-    # 4. Rodar os testes (Opcional, pode ser removido se não for necessário)
+    # 3. Rodar os testes
     - name: Run tests
       run: npm run test
 
-    # 5. Iniciar o servidor
-#    - name: Start the server
-#      working-directory: ./Server
-#      run: node server.js &
-
-    # 6. Fazer o build da aplicação
+    # 4. Fazer o build da aplicação
     - name: Build
       run: npm run build
 
