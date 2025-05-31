@@ -1,5 +1,3 @@
-# .github/workflows/deploy.yml
-
 name: Pokédex Gui - DevOps - Deploy na AWS
 on:
   push:
@@ -8,6 +6,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  # id-token: write # Remova ou comente esta linha se der erro ou se não usar OIDC na Academy
   contents: read
 
 jobs:
@@ -27,33 +26,35 @@ jobs:
         env:
           CI: false
 
+      # Configuração de credenciais AWS usando secrets do GitHub
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          aws-region: us-east-1 # CONFIRME SUA REGIÃO DA ACADEMY AQUI
 
-      # ----- NOVA ETAPA DE DEPLOY DO CLOUDFORMATION COM AWS CLI -----
-      - name: Deploy CloudFormation Stack (via AWS CLI)
-        run: |
-          aws cloudformation deploy \
-            --template-file cloudformation-template.yml \
-            --stack-name PokedexGuiStack \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-seunomeunico # <<<<< Mantenha seu nome único aqui
-          # Se você precisa passar o OAI como um segredo novamente (o que não deve ser o caso com o template atualizado)
-          # --parameter-overrides BucketName=pokedex-gui-frontend-bucket-seunomeunico CloudFrontOriginAccessIdentity=${{ secrets.OAI_ID }}
-      # -----------------------------------------------------------------
+      # Criar/Atualizar CloudFormation Stack
+      - name: Deploy CloudFormation Stack
+        uses: aws-actions/aws-cloudformation-deploy@v1
+        with:
+          name: PokedexGuiStack # Nome da sua stack
+          template: cloudformation-template.yml
+          parameter-overrides: |
+            BucketName=pokedex-gui-frontend-bucket-seunomeunico-2025-05-30-2150 # <<<<<<<<<<<<<<<< ATUALIZE ESTE NOME TAMBÉM AQUI ou remova a linha para usar o default do template
+          # Remova ou comente a linha abaixo, pois OAI não é mais um parâmetro
+          # CloudFrontOriginAccessIdentity=${{ secrets.OAI_ID }}
 
       - name: Sync S3 Bucket
         run: |
+          # O comando abaixo está ok, ele buscará o nome do bucket do CloudFormation Outputs
           aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
           --delete
 
       - name: Invalidate CloudFront Cache
         run: |
+          # O comando abaixo está ok, ele buscará o ID da distribuição do CloudFront Outputs
           CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' --output text)
           CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='$CLOUDFRONT_DOMAIN'].Id" --output text)
 
