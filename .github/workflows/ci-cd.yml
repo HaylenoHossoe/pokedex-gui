@@ -13,17 +13,17 @@ permissions:
 
 jobs:
   # Job 1: Integração Contínua (Build e Teste)
-  build_and_test: # <<<<<<<<<<<<<<<< Nome da job de CI
+  test_and_build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Verifica o código
         uses: actions/checkout@v2
 
-      - name: Install dependencies
+      - name: Instala dependências
         run: npm install
 
-      - name: Run tests
+      - name: Executa testes
         run: npm run test
 
       - name: Build React App
@@ -31,38 +31,23 @@ jobs:
         env:
           CI: false # Desabilita o erro de "warnings as errors"
 
-      # A etapa de Upload Build Artifact não é mais necessária aqui
-      # pois a job de deploy vai refazer o build.
-      # - name: Upload Build Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: react-app-build
-      #     path: build/
-
   # Job 2: Implantação Contínua (Deploy)
-  deploy: # <<<<<<<<<<<<<<<< Nome da job de CD
+  deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: build_and_test # <<<<<<<<<<<<<<<< Esta job SÓ roda se 'build_and_test' for bem-sucedida
+    needs: test_and_build # Este job sÓ roda se 'test_and_build' for bem-sucedido
 
     steps:
-      - name: Checkout code
+      - name: Verifica o código
         uses: actions/checkout@v2 # Checkout novamente para ter o código no runner de deploy
 
-      - name: Install dependencies
-        run: npm install # <<<<<<<<<<<<<<<< Reinstala as dependências
+      - name: Instala dependências
+        run: npm install
       
       - name: Build React App
-        run: npm run build # <<<<<<<<<<<<<<<< Refaz o build da aplicação
+        run: npm run build
         env:
           CI: false
-
-      # A etapa de Download Build Artifact não é mais necessária aqui,
-      # pois o build está sendo feito novamente nesta job.
-      # - name: Download Build Artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: react-app-build
 
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
