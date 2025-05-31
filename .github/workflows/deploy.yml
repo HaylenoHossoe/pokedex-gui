@@ -46,10 +46,10 @@ jobs:
       - name: Deploy CloudFormation Stack (Frontend S3)
         run: |
           aws cloudformation deploy \
-            --template-file cloudformation-frontend.yml \ # <<<<<<<<<<<<<<<< Mude para o nome do novo template
-            --stack-name PokedexGuiFrontendStack \ # <<<<<<<<<<<<<<<< Um novo nome para a stack
+            --template-file cloudformation-frontend.yml \
+            --stack-name PokedexGuiFrontendStack \
             --capabilities CAPABILITY_IAM \
-            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150 # <<<<<<<<<<<<<<<< Mantenha o nome do bucket único aqui (igual ao default do template)
+            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
 
       # 6. Sincronizar os arquivos do build com o S3 Bucket
       - name: Sync S3 Bucket
