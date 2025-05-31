@@ -5,7 +5,7 @@ Parameters:
   BucketName:
     Type: String
     Description: Name for the S3 bucket where the React app will be hosted. Must be globally unique.
-    Default: pokedex-gui-frontend-bucket-2025-05-30-2150 # <<<<<<<<<<<<<<<< IMPORTANTE: Mude para um nome MUITO ÚNICO. Adicione seu nome, iniciais, ou um número para garantir a unicidade global.
+    Default: pokedex-gui-frontend-bucket-2025-05-30-2150
 
 Resources:
   # S3 Bucket para hospedar o frontend React como um site estático
@@ -13,8 +13,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
-      # Essas configurações são retiradas do template do professor e permitem acesso público.
-      # O BucketPolicy abaixo concederá o acesso de leitura necessário.
+      # Configurações para permitir acesso público.
+      # O BucketPolicy abaixo concede o acesso de leitura necessário.
       OwnershipControls:
         Rules:
           - ObjectOwnership: ObjectWriter # Necessário para ACLs legadas se 'public-read' for usado em uploads.
@@ -24,7 +24,7 @@ Resources:
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
       WebsiteConfiguration:
-        IndexDocument: index.html # Ponto de entrada da sua aplicação React
+        IndexDocument: index.html # Ponto de entrada da aplicação React
         ErrorDocument: index.html # Para SPAs (Single Page Applications), todas as rotas caem em index.html
 
   # Políticas para o S3 Bucket para permitir acesso público de leitura para o site estático
