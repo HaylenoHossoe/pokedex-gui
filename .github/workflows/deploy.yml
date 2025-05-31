@@ -1,66 +1,62 @@
 # .github/workflows/deploy.yml
 
-name: Pokédex Gui - DevOps - Deploy na AWS
+name: Pokédex Gui - DevOps - Deploy no S3 (Sem CloudFront)
+# Definir o gatilho para o workflow de deploy
 on:
   push:
     branches:
-      - main
-  workflow_dispatch: {}
+      - main # Dispara o deploy quando houver push na branch main
+  workflow_dispatch: {} # Permite executar manualmente o workflow
 
+# Permissões necessárias para as jobs
 permissions:
-  contents: read
+  contents: read # Permite ler o código do repositório
 
+# Configuração das jobs do workflow
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    environment: production
+    runs-on: ubuntu-latest # Executa em uma máquina Ubuntu
+    environment: production # Você pode definir um ambiente (opcional)
 
     steps:
+      # 1. Checar o código do repositório
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # 2. Instalar dependências (se ainda não tiver feito no CI ou se quiser garantir)
       - name: Install dependencies
         run: npm install
 
+      # 3. Fazer o build da aplicação React
       - name: Build React App
         run: npm run build
         env:
-          CI: false
+          CI: false # Desabilita o erro de "warnings as errors" que pode ocorrer no build do React
 
+      # 4. Configurar credenciais AWS
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Necessário para credenciais temporárias da Academy
+          aws-region: us-east-1 # Ou a região que você está usando no laboratório da AWS Academy
 
-      # ----- NOVA ETAPA DE DEPLOY DO CLOUDFORMATION COM AWS CLI -----
-      - name: Deploy CloudFormation Stack (via AWS CLI)
+      # 5. Criar/Atualizar CloudFormation Stack (agora usando o template do frontend)
+      - name: Deploy CloudFormation Stack (Frontend S3)
         run: |
           aws cloudformation deploy \
-            --template-file cloudformation-template.yml \
-            --stack-name PokedexGuiStack \
+            --template-file cloudformation-frontend.yml \ # <<<<<<<<<<<<<<<< Mude para o nome do novo template
+            --stack-name PokedexGuiFrontendStack \ # <<<<<<<<<<<<<<<< Um novo nome para a stack
             --capabilities CAPABILITY_IAM \
-            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-seunomeunico # <<<<< Mantenha seu nome único aqui
-          # Se você precisa passar o OAI como um segredo novamente (o que não deve ser o caso com o template atualizado)
-          # --parameter-overrides BucketName=pokedex-gui-frontend-bucket-seunomeunico CloudFrontOriginAccessIdentity=${{ secrets.OAI_ID }}
-      # -----------------------------------------------------------------
+            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150 # <<<<<<<<<<<<<<<< Mantenha o nome do bucket único aqui (igual ao default do template)
 
+      # 6. Sincronizar os arquivos do build com o S3 Bucket
       - name: Sync S3 Bucket
         run: |
-          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
-          --delete
+          # O nome da stack é PokedexGuiFrontendStack agora
+          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
+          --delete # --delete remove arquivos que não existem mais no build
 
-      - name: Invalidate CloudFront Cache
-        run: |
-          CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks --stack-name PokedexGuiStack --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' --output text)
-          CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='$CLOUDFRONT_DOMAIN'].Id" --output text)
-
-          if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
-            echo "Erro: Não foi possível obter o ID da distribuição CloudFront. Verifique o nome do domínio ou a existência da stack."
-            exit 1
-          fi
-
-          echo "Invalidando cache para a distribuição CloudFront ID: $CLOUDFRONT_DISTRIBUTION_ID"
-          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+      # 7. (REMOVIDO) Invalidação de cache do CloudFront - Não é mais necessário pois não usamos CloudFront.
+      # Essa etapa será removida completamente.

@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template for Pokedex Gui React application hosted on S3 using Static Website Hosting.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name for the S3 bucket where the React app will be hosted. Must be globally unique.
+    Default: pokedex-gui-frontend-bucket-2025-05-30-2150 # <<<<<<<<<<<<<<<< IMPORTANTE: Mude para um nome MUITO ÚNICO. Adicione seu nome, iniciais, ou um número para garantir a unicidade global.
+
+Resources:
+  # S3 Bucket para hospedar o frontend React como um site estático
+  FrontendS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      # Essas configurações são retiradas do template do professor e permitem acesso público.
+      # O BucketPolicy abaixo concederá o acesso de leitura necessário.
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter # Necessário para ACLs legadas se 'public-read' for usado em uploads.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html # Ponto de entrada da sua aplicação React
+        ErrorDocument: index.html # Para SPAs (Single Page Applications), todas as rotas caem em index.html
+
+  # Políticas para o S3 Bucket para permitir acesso público de leitura para o site estático
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendS3Bucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*" # Permite acesso de leitura para qualquer um (público)
+            Action: s3:GetObject
+            Resource: !Sub 'arn:aws:s3:::${FrontendS3Bucket}/*' # Permite acesso a todos os objetos no bucket
+
+Outputs:
+  S3WebsiteURL:
+    Description: URL do endpoint do site estático do S3.
+    Value: !GetAtt FrontendS3Bucket.WebsiteURL
+    Export:
+      Name: !Sub '${AWS::StackName}-S3WebsiteURL'
+  S3BucketName:
+    Description: Nome do S3 bucket hospedando a aplicação React.
+    Value: !Ref FrontendS3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketName'
