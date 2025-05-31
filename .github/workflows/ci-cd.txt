@@ -1,0 +1,74 @@
+# .github/workflows/ci-cd.yml #
+
+name: Pokédex Gui - CI/CD Completo
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # Job 1: Integração Contínua (Build e Teste)
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build React App
+        run: npm run build
+        env:
+          CI: false # Desabilita o erro de "warnings as errors"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4 # Upload do artefato 'build/'
+        with:
+          name: react-app-build
+          path: build/ # Caminho da pasta de build
+
+  # Job 2: Implantação Contínua (Deploy)
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: build_and_test 
+
+    steps:
+      - name: Checkout code (for context, not re-build)
+        uses: actions/checkout@v2
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4 # Download do artefato 'build/'
+        with:
+          name: react-app-build # Mesmo nome usado para upload
+
+      - name: Configure AWS Credentials for Academy
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Deploy CloudFormation Stack (Frontend S3)
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation-frontend.yml \
+            --stack-name PokedexGuiFrontendStack \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
+
+      - name: Sync S3 Bucket
+        run: |
+          aws s3 sync ./react-app-build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
+          --delete # --delete remove arquivos que não existem mais no build

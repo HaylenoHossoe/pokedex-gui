@@ -1,19 +1,19 @@
-# .github/workflows/ci-cd.yml #
+# .github/workflows/ci-cd.yml
 
 name: Pokédex Gui - CI/CD Completo
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch: {}
+      - main # Dispara o workflow a cada push na branch main
+  workflow_dispatch: {} # Permite execução manual
 
 permissions:
-  contents: read
+  contents: read # Permite ler o código do repositório
 
 jobs:
   # Job 1: Integração Contínua (Build e Teste)
-  build_and_test:
+  build_and_test: # <<<<<<<<<<<<<<<< Nome da job de CI
     runs-on: ubuntu-latest
 
     steps:
@@ -31,26 +31,38 @@ jobs:
         env:
           CI: false # Desabilita o erro de "warnings as errors"
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4 # Upload do artefato 'build/'
-        with:
-          name: react-app-build
-          path: build/ # Caminho da pasta de build
+      # A etapa de Upload Build Artifact não é mais necessária aqui
+      # pois a job de deploy vai refazer o build.
+      # - name: Upload Build Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: react-app-build
+      #     path: build/
 
   # Job 2: Implantação Contínua (Deploy)
-  deploy:
+  deploy: # <<<<<<<<<<<<<<<< Nome da job de CD
     runs-on: ubuntu-latest
     environment: production
-    needs: build_and_test 
+    needs: build_and_test # <<<<<<<<<<<<<<<< Esta job SÓ roda se 'build_and_test' for bem-sucedida
 
     steps:
-      - name: Checkout code (for context, not re-build)
-        uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2 # Checkout novamente para ter o código no runner de deploy
 
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4 # Download do artefato 'build/'
-        with:
-          name: react-app-build # Mesmo nome usado para upload
+      - name: Install dependencies
+        run: npm install # <<<<<<<<<<<<<<<< Reinstala as dependências
+      
+      - name: Build React App
+        run: npm run build # <<<<<<<<<<<<<<<< Refaz o build da aplicação
+        env:
+          CI: false
+
+      # A etapa de Download Build Artifact não é mais necessária aqui,
+      # pois o build está sendo feito novamente nesta job.
+      # - name: Download Build Artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: react-app-build
 
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
@@ -70,5 +82,6 @@ jobs:
 
       - name: Sync S3 Bucket
         run: |
-          aws s3 sync ./react-app-build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
+          # O caminho agora é diretamente 'build/' pois o build foi refeito nesta job
+          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
           --delete # --delete remove arquivos que não existem mais no build
