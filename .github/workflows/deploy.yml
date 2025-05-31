@@ -37,7 +37,7 @@ jobs:
 
       # Criar/Atualizar CloudFormation Stack
       - name: Deploy CloudFormation Stack
-        uses: aws-actions/aws-cloudformation-deploy@v1.4.1
+        uses: aws-actions/aws-cloudformation-deploy@v1.3.0
         with:
           name: PokedexGuiStack # Nome da sua stack
           template: cloudformation-template.yml
