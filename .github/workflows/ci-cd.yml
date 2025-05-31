@@ -12,7 +12,7 @@ permissions:
   contents: read # Permite ler o código do repositório
 
 jobs:
-  # Job 1: Integração Contínua (Build e Teste)
+  # Job 1: Integração Contínua (Teste e Build)
   test_and_build:
     runs-on: ubuntu-latest
 
@@ -35,11 +35,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: test_and_build # Este job sÓ roda se 'test_and_build' for bem-sucedido
+    needs: test_and_build # Este job só roda se "test_and_build" for bem-sucedido
 
     steps:
       - name: Verifica o código
-        uses: actions/checkout@v2 # Checkout novamente para ter o código no runner de deploy
+        uses: actions/checkout@v2
 
       - name: Instala dependências
         run: npm install
