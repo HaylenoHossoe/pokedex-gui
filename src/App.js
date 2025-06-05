@@ -1,7 +1,7 @@
 // src/App.js
 import React, { useState } from 'react';
 import usePokemonSearch from './hooks/usePokemonSearch';
-import './App.css'; // Estilos específicos do componente
+import './App.css';
 
 function App() {
   const [inputPokemonName, setInputPokemonName] = useState('');
