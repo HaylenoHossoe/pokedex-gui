@@ -1,15 +1,16 @@
 # .github/workflows/ci-cd.yml
 
-name: Pokédex Gui - CI/CD
+name: Pokédex Gui - CI/CD Completo
 
 on:
   push:
     branches:
-      - main # Dispara o workflow a cada push na branch main
-  workflow_dispatch: {} # Permite execução manual
+      - main
+  workflow_dispatch: {}
 
 permissions:
   contents: read # Permite ler o código do repositório
+  id-token: write # Adicionar esta permissão para SonarCloud
 
 jobs:
   # Job 1: Integração Contínua (Teste e Build)
@@ -19,9 +20,29 @@ jobs:
     steps:
       - name: Verifica o código
         uses: actions/checkout@v2
+        with:
+          # Fetch all history for SonarQube analysis
+          fetch-depth: 0 
 
       - name: Instala dependências
         run: npm install
+
+    # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Verifique a compatibilidade com seu projeto React
+
+      - name: Run SonarQube Analysis
+        uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
+        with:
+          projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
+          # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
+    # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
+
 
       - name: Executa testes
         run: npm run test
@@ -29,7 +50,7 @@ jobs:
       - name: Build React App
         run: npm run build
         env:
-          CI: false # Desabilita o erro de "warnings as errors"
+          CI: false
 
   # Job 2: Implantação Contínua (Deploy)
   deploy:
@@ -57,16 +78,29 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Deploy CloudFormation Stack (Frontend S3)
+    # --- PASSO ANTIGO (DEPLOY S3): COMENTADO/REMOVIDO ---
+    # - name: Deploy CloudFormation Stack (Frontend S3)
+    #   run: |
+    #     aws cloudformation deploy \
+    #       --template-file cloudformation-frontend.yml \
+    #       --stack-name PokedexGuiFrontendStack \
+    #       --capabilities CAPABILITY_IAM \
+    #       --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
+
+    # --- PASSO ANTIGO (SYNC S3): REMOVIDO OU COMENTADO ---
+    #   - name: Sync S3 Bucket
+    #     run: |
+    #       aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
+    #       --delete 
+    
+    # --- NOVO PASSO: DEPLOY DA INFRA DO ECS/FARGATE ---
+      - name: Deploy ECS/Fargate CloudFormation Stack
         run: |
           aws cloudformation deploy \
-            --template-file cloudformation-frontend.yml \
-            --stack-name PokedexGuiFrontendStack \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
-
-      - name: Sync S3 Bucket
-        run: |
-          # O caminho agora é diretamente 'build/' pois o build foi refeito nesta job
-          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
-          --delete # --delete remove arquivos que não existem mais no build
+            --template-file cloudformation-ecs.yml \
+            --stack-name PokedexGuiEcsStack \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \ # AJUSTADO AQUI!
+            --parameter-overrides \
+              VpcId=vpc-0ef104b9a906559fd \ # SEU VPC ID (CORRETO!)
+              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f # SUAS SUBNET IDs (CORRETO!)
+    # --- FIM NOVO PASSO ---
