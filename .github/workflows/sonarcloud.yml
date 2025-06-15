@@ -1,43 +1,44 @@
 # .github/workflows/sonarcloud.yml
 
-name: SonarCloud Analysis
+name: SonarCloud analysis
 
 on:
   push:
-    branches: [ "containers-ecs" ] # Dispara na branch correta
+    branches: [ "containers-ecs" ]
   pull_request:
-    branches: [ "containers-ecs" ] # Dispara para Pull Requests na branch correta
-  workflow_dispatch: {} # Permite execução manual
+    branches: [ "containers-ecs" ]
+  workflow_dispatch: {}
 
 permissions:
-  contents: read # Permite ler o código do repositório
-  pull-requests: read # Permite que o SonarCloud decore PRs com resultados de análise
-  id-token: write # Necessário para autenticação com SonarCloud via OpenID Connect (melhor prática)
+  contents: read
+  pull-requests: read
+  id-token: write
 
 jobs:
   Analysis:
-    runs-on: ubuntu-latest # Executa em um ambiente Ubuntu
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3 # Usar a versão mais recente para melhor segurança e compatibilidade
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Necessário para a análise completa do SonarQube (histórico de commits)
+          fetch-depth: 0 
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3 # Configura o ambiente Node.js, se o projeto for JavaScript/TypeScript
+        uses: actions/setup-node@v3
         with:
-          node-version: '18' # Ajuste para a versão do Node.js do seu projeto React
+          node-version: '18'
 
       - name: Run SonarCloud Analysis
-        uses: SonarSource/sonarcloud-github-action@v2.2 # Recomendo usar a tag de versão (v2.2) em vez do hash específico para atualizações automáticas de patches
+        uses: SonarSource/sonarcloud-github-action@v2.2 # Usar a tag de versão é recomendado
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Seu token pessoal do SonarCloud (deve estar nos secrets do GitHub)
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: > # Múltiplas linhas para argumentos do scanner
-            -Dsonar.projectKey=HaylenoHossoe_pokedex-gui # <--- CORRIGIDO AQUI: SEU PROJECT KEY
-            # -Dsonar.organization=haylenohossoe # Descomente e preencha se você tiver uma organização no SonarCloud
-            # -Dsonar.sources=. # Opcional, o padrão é o diretório base do projeto
-            # -Dsonar.tests=src # Opcional, se tiver diretório específico para testes
-            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Exemplo para testes React
-          projectBaseDir: . # O diretório base do seu projeto, padrão é o diretório raiz do repositório
+          # Cada argumento SonarScanner deve ser um item separado na lista
+          args:
+              -Dsonar.projectKey=HaylenoHossoe_pokedex-gui
+              -Dsonar.organization=haylenohossoe # AGORA CORRIGIDO E SEM COMENTÁRIOS NA LINHA DO VALOR
+            # -Dsonar.sources=. # Exemplo: remova o '#' para ativar
+            # -Dsonar.tests=src # Exemplo: remova o '#' para ativar
+            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Exemplo: remova o '#' para ativar
+          projectBaseDir: .
