@@ -27,21 +27,21 @@ jobs:
       - name: Instala dependências
         run: npm install
 
-    # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD ---
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18' # Verifique a compatibilidade com seu projeto React
+#    # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD ---
+#      - name: Set up Node.js
+#        uses: actions/setup-node@v3
+#        with:
+#          node-version: '18' # Verifique a compatibilidade com seu projeto React
 
-      - name: Run SonarQube Analysis
-        uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
-        with:
-          projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
-          # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
-    # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
+#      - name: Run SonarQube Analysis
+#        uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
+#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
+#        with:
+#          projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
+#          # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
+#    # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
 
 
       - name: Executa testes
