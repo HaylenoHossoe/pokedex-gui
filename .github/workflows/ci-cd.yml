@@ -5,7 +5,7 @@ name: Pokédex Gui - CI/CD Completo
 on:
   push:
     branches:
-      - main
+      - containers-ecs
   workflow_dispatch: {}
 
 permissions:
