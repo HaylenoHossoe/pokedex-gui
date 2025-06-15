@@ -1,6 +1,6 @@
 # .github/workflows/sonarcloud.yml
 
-name: SonarCloud analysis
+name: SonarCloud Analysis
 
 on:
   push:
