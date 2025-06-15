@@ -100,7 +100,7 @@ jobs:
           aws cloudformation deploy \
             --template-file cloudformation-ecs.yml \
             --stack-name PokedexGuiEcsStack \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \ # Removido o comentário desta linha
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               VpcId=vpc-0ef104b9a906559fd \
               SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
