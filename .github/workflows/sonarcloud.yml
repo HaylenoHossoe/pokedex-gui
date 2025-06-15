@@ -36,7 +36,7 @@ jobs:
         with:
           args: > # Múltiplas linhas para argumentos do scanner
             -Dsonar.projectKey=HaylenoHossoe_pokedex-gui # <--- CORRIGIDO AQUI: SEU PROJECT KEY
-            # -Dsonar.organization=sua-organizacao # Descomente e preencha se você tiver uma organização no SonarCloud
+            # -Dsonar.organization=haylenohossoe # Descomente e preencha se você tiver uma organização no SonarCloud
             # -Dsonar.sources=. # Opcional, o padrão é o diretório base do projeto
             # -Dsonar.tests=src # Opcional, se tiver diretório específico para testes
             # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Exemplo para testes React
