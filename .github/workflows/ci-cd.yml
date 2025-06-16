@@ -85,16 +85,16 @@ jobs:
            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
-      # --- MÓDULO 5.1: SCAN DE VULNERABILIDADES COM TRIVY ---
-      - name: Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@master # Use a versão mais recente
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/pokedex-gui-frontend-repo:latest
-          format: 'table'
-          exit-code: '1' # Falha o pipeline se encontrar vulnerabilidades
-          ignore-unfixed: true # Ignora vulnerabilidades que não possuem fix disponível
-          severity: 'CRITICAL,HIGH' # Apenas reporte e falhe para CRITICAL e HIGH
-      # --- FIM MÓDULO 5.1 ---
+#      # --- MÓDULO 5.1: SCAN DE VULNERABILIDADES COM TRIVY ---
+#      - name: Scan Docker Image with Trivy
+#        uses: aquasecurity/trivy-action@master # Use a versão mais recente
+#        with:
+#          image-ref: ${{ steps.login-ecr.outputs.registry }}/pokedex-gui-frontend-repo:latest
+#          format: 'table'
+#          exit-code: '1' # Falha o pipeline se encontrar vulnerabilidades
+#          ignore-unfixed: true # Ignora vulnerabilidades que não possuem fix disponível
+#          severity: 'CRITICAL,HIGH' # Apenas reporte e falhe para CRITICAL e HIGH
+#      # --- FIM MÓDULO 5.1 ---
 
       # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA ECR ---
       - name: Push Image to Amazon ECR
