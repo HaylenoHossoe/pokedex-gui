@@ -61,6 +61,9 @@ jobs:
       - name: Verifica o código
         uses: actions/checkout@v2
 
+      # Removido: "Instala dependências" e "Build React App" para evitar redundância,
+      # pois a imagem Docker já fará isso internamente.
+
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -68,6 +71,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
+
+      # --- NOVO PASSO: DEPLOY DA INFRA DO ECS/FARGATE (Se necessário atualizar a infra) ---
+      # Este passo deve vir ANTES do push da imagem Docker se o repositório ECR
+      # ou o cluster/serviço ECS ainda não existirem ou precisarem de atualização.
+      - name: Deploy ECS/Fargate CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation-ecs.yml \
+            --stack-name PokedexGuiEcsStack \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              VpcId=vpc-0ef104b9a906559fd \
+              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
+      # --- FIM NOVO PASSO ---
 
       # --- MÓDULO 4.1: LOGIN NO ECR ---
       - name: Login to Amazon ECR
@@ -82,7 +99,7 @@ jobs:
           ECR_REPOSITORY: pokedex-gui-frontend-repo # Nome do repositório ECR
           IMAGE_TAG: latest # Usamos 'latest' para simplicidade, conforme sua Task Definition
         run: |
-          # 'Dockerfile' é o nome padrão, não precisa do '-f Dockerfile'
+
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
@@ -107,28 +124,11 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
       # --- FIM MÓDULO 4.2 (Parte 2) ---
 
-      # --- AGORA DEPLOY DA INFRA DO ECS/FARGATE (APÓS O PUSH DA IMAGEM) ---
-      # Este passo criará/atualizará o ECR (se ainda não existir), o Cluster,
-      # a Task Definition e o Serviço ECS. Quando o serviço ECS tentar subir as tarefas,
-      # a imagem JÁ ESTARÁ no ECR.
-      - name: Deploy ECS/Fargate CloudFormation Stack
-        run: |
-          aws cloudformation deploy \
-            --template-file cloudformation-ecs.yml \
-            --stack-name PokedexGuiEcsStack \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              VpcId=vpc-0ef104b9a906559fd \
-              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
-      # --- FIM DEPLOY ---
-
-      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS (Opcional, mas útil para forçar nova implantação) ---
-      # Este passo é para garantir que o ECS force uma nova implantação,
-      # mesmo que a definição da tarefa não tenha mudado, apenas a imagem "latest".
-      # É especialmente útil para atualizações de código que não alteram o Task Definition.
-      - name: Force new ECS service deployment
+      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS ---
+      - name: Deploy Amazon ECS service
         run: |
           aws ecs update-service \
-            --cluster PokedexGui-Cluster \
-            --service PokedexGui-Frontend-Service \
-            --force-new-deployment
+            --cluster PokedexGui-Cluster \ # Nome do cluster que o CloudFormation criou
+            --service PokedexGui-Frontend-Service \ # Nome do serviço que o CloudFormation criou
+            --force-new-deployment # Força o ECS a puxar a nova imagem e reiniciar a task
+      # --- FIM MÓDULO 4.3 ---
