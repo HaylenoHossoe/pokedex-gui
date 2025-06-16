@@ -82,7 +82,7 @@ jobs:
           ECR_REPOSITORY: pokedex-gui-frontend-repo # Nome do repositório ECR
           IMAGE_TAG: latest # Usamos 'latest' para simplicidade, conforme sua Task Definition
         run: |
-           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
       # --- MÓDULO 5.1: SCAN DE VULNERABILIDADES COM TRIVY ---
