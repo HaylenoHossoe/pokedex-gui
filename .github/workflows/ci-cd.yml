@@ -1,6 +1,6 @@
 # .github/workflows/ci-cd.yml
 
-name: Pokédex Gui - CI/CD completo com sonarcloud 
+name: Pokédex Gui - CI/CD completo com SonarCloud 
 
 on:
   push:
