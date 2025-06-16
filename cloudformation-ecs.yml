@@ -1,55 +1,55 @@
-# cloudformation-ecs.yml
-
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation template for ECS/Fargate infrastructure for Pokedex Gui.
 
 Parameters:
   AppName:
     Type: String
-    Default: PokedexGui
-    Description: Nome da aplicação (usado para nomear recursos).
-  VpcId: # Parâmetro para o ID da VPC existente
+    Default: pokedex-gui
+    Description: Nome do app (usado para nomear recursos).
+  VpcId: # Parametro para o ID da VPC existente
     Type: String
-    Description: O ID da VPC onde o cluster ECS será criado.
-  SubnetIds: # Parâmetro para os IDs das Subnets existentes (pelo menos duas para Fargate)
+    Description: O ID da VPC onde o cluster ECS sera criado.
+  SubnetIds: # Parametro para os IDs das Subnets existentes (pelo menos duas para Fargate)
     Type: CommaDelimitedList
     Description: Lista de IDs das Subnets para o ECS Fargate.
 
 Resources:
-  # 1. Repositório ECR para a imagem Docker
+  # 1. Repositorio ECR para a imagem Docker
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${AppName}-frontend-repo'
       ImageScanningConfiguration:
         ScanOnPush: true # Habilita o scan de vulnerabilidades ao fazer push da imagem
-      ImageTagMutability: MUTABLE # Ou IMMUTABLE para maior segurança (mas pode complicar o deploy)
+      ImageTagMutability: MUTABLE # Ou IMMUTABLE para maior seguranca (mas pode complicar o deploy)
 
   # 2. Cluster ECS
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: !Sub '${AppName}-Cluster'
+      ClusterName: !Sub '${AppName}-cluster'
 
-  # 3. Task Definition ECS (define o contêiner)
-  # Note: Este é um exemplo básico. Em produção, você passaria mais configs,
-  # como variáveis de ambiente, limites de CPU/Memória mais precisos, etc.
+  # 3. Task Definition ECS (define o container)
+  # Note: Este e um exemplo basico. Em producao, voce passaria mais configs,
+  # como variaveis de ambiente, limites de CPU/Memoria mais precisos, etc.
   ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub '${AppName}-Frontend-Task'
       Cpu: '256' # 0.25 vCPU
       Memory: '512' # 512 MB
-      NetworkMode: awsvpc # Necessário para Fargate
+      NetworkMode: awsvpc # Necessario para Fargate
       RequiresCompatibilities:
         - FARGATE
-      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn # Permissões para o Fargate puxar a imagem e enviar logs
-      TaskRoleArn: !GetAtt ECSTaskRole.Arn # Permissões para a aplicação dentro do contêiner (se precisar de AWS API)
+      # ATENCAO: Usando a LabRole para ExecutionRoleArn e TaskRoleArn
+      # Verifique se a LabRole possui as permissoes necessarias para ECS (pull de imagem, logs, etc.)
+      ExecutionRoleArn: 'arn:aws:iam::085103152871:role/LabRole'
+      TaskRoleArn: 'arn:aws:iam::085103152871:role/LabRole' # Usando a mesma role, ja que a criacao de novas roles eh restrita
       ContainerDefinitions:
         - Name: !Sub '${AppName}-frontend'
-          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-frontend-repo:latest' # Será atualizada pelo pipeline
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-frontend-repo:latest' # Sera atualizada pelo pipeline
           PortMappings:
-            - ContainerPort: 80 # Porta que o Nginx está escutando dentro do contêiner
+            - ContainerPort: 80 # Porta que o Nginx esta escutando dentro do container
               Protocol: tcp
           LogConfiguration:
             LogDriver: awslogs
@@ -58,27 +58,27 @@ Resources:
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: !Sub '${AppName}-frontend'
 
-  # 4. Serviço ECS (mantém o número desejado de instâncias da task)
+  # 4. Servico ECS (mantem o numero desejado de instancias da task)
   ECSService:
     Type: AWS::ECS::Service
     Properties:
       Cluster: !Ref ECSCluster
-      ServiceName: !Sub '${AppName}-Frontend-Service'
+      ServiceName: !Sub '${AppName}-frontend-service'
       TaskDefinition: !Ref ECSTaskDefinition
       LaunchType: FARGATE
-      DesiredCount: 1 # Número de instâncias do seu contêiner
+      DesiredCount: 1 # Numero de instancias do seu container
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED # Habilita IP público para acesso direto (para laboratório)
+          AssignPublicIp: ENABLED # Habilita IP publico para acesso direto (para laboratorio)
           Subnets: !Ref SubnetIds
           SecurityGroups:
-            - !GetAtt FrontendSecurityGroup.GroupId # Grupo de segurança para o contêiner
+            - !GetAtt FrontendSecurityGroup.GroupId # Grupo de seguranca para o container
 
-  # 5. Grupo de Segurança para o Serviço ECS (permite tráfego HTTP de entrada)
+  # 5. Grupo de Seguranca para o Servico ECS (permite trafego HTTP de entrada)
   FrontendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Permite tráfego HTTP para o frontend Pokédex Gui
+      GroupDescription: Permite trafego HTTP para o frontend Pokedex Gui
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -86,59 +86,36 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0 # Permite acesso de qualquer IP na porta 80 (HTTP)
 
-  # 6. IAM Role para o Fargate Executar a Task (Execution Role)
-  ECSTaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy # Padrão para Fargate puxar imagens e enviar logs
+  # REMOVIDOS:
+  # As definicoes de AWS::IAM::Role para ECSTaskExecutionRole e ECSTaskRole
+  # foram removidas, pois seu ambiente AWS Academy nao permite a criacao dessas roles.
+  # Em vez disso, a LabRole sera usada.
 
-  # 7. IAM Role para a Aplicação dentro da Task (Task Role)
-  # Exemplo: Se sua app precisasse acessar o DynamoDB ou S3
-  ECSTaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      # ManagedPolicyArns:
-      #   - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess # Exemplo: se precisar ler do S3
-      # Políticas personalizadas podem ser adicionadas aqui se a aplicação React precisar de acesso a outros serviços AWS
-
-  # 8. CloudWatch Log Group
+  # 6. CloudWatch Log Group
   CloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/ecs/${AppName}-frontend'
-      RetentionInDays: 7 # Retenção de logs por 7 dias (ajuste conforme necessário)
+      RetentionInDays: 7 # Retencao de logs por 7 dias (ajuste conforme necessario)
 
 Outputs:
   ECRRepositoryUri:
-    Description: URI do repositório ECR
+    Description: URI do repositorio ECR
     Value: !GetAtt ECRRepository.RepositoryUri
     Export:
-      Name: !Sub '${AppName}-ECRRepositoryUri'
+      Name: !Sub '${AppName}-ecr-repository-uri'
   ECSClusterName:
     Description: Nome do Cluster ECS
     Value: !Ref ECSCluster
     Export:
-      Name: !Sub '${AppName}-ECSClusterName'
+      Name: !Sub '${AppName}-ecs-cluster-name'
   ECSServiceName:
-    Description: Nome do Serviço ECS
+    Description: Nome do Servico ECS
     Value: !Ref ECSService
     Export:
-      Name: !Sub '${AppName}-ECSServiceName'
+      Name: !Sub '${AppName}-ecs-service-name'
   FrontendPublicIp:
-    Description: IP público do frontend ECS Fargate (se Enabled)
+    Description: IP publico do frontend ECS Fargate (se Enabled)
     Value: !GetAtt ECSService.NetworkConfiguration.AwsvpcConfiguration.PublicIp
-    # Nota: O IP público do Fargate não é estático e muda em cada deploy/reinício da task.
-    # Para um ambiente real, você usaria um Load Balancer (ALB) e um CNAME.
+    # Nota: O IP publico do Fargate nao e estatico e muda em cada deploy/reinicio da task.
+    # Para um ambiente real, voce usaria um Load Balancer (ALB) e um CNAME.
