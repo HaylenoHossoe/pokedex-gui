@@ -27,7 +27,21 @@ jobs:
       - name: Instala dependências
         run: npm install
 
-      # SonarQube comentado...
+#     # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD (Comentado, mas pode ser ativado se necessário) ---
+#     - name: Set up Node.js
+#       uses: actions/setup-node@v3
+#       with:
+#         node-version: '18' # Verifique a compatibilidade com seu projeto React
+
+#     - name: Run SonarQube Analysis
+#       uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
+#         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
+#       with:
+#         projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
+#         # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
+#     # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
 
       - name: Executa testes
         run: npm run test
@@ -55,22 +69,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # --- PASSO CRUCIAL: DEPLOY DA INFRA DO ECS/FARGATE (Deve vir PRIMEIRO para criar o ECR) ---
-      # Este passo criará/atualizará o ECR (se ainda não existir), o Cluster,
-      # a Task Definition e o Serviço ECS.
-      - name: Deploy ECS/Fargate CloudFormation Stack
-        run: |
-          set -x # Mantenha isso para depuração adicional
-          aws cloudformation deploy \
-            --template-file cloudformation-ecs.yml \
-            --stack-name PokedexGuiEcsStack \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              VpcId=vpc-0ef104b9a906559fd \
-              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
-      # --- FIM DEPLOY INFRA ---
-
-      # --- MÓDULO 4.1: LOGIN NO ECR (Agora o repositório ECR DEVE existir) ---
+      # --- MÓDULO 4.1: LOGIN NO ECR ---
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -83,10 +82,19 @@ jobs:
           ECR_REPOSITORY: pokedex-gui-frontend-repo # Nome do repositório ECR
           IMAGE_TAG: latest # Usamos 'latest' para simplicidade, conforme sua Task Definition
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
-      # Trivy Scan (comentado)
+#      # --- MÓDULO 5.1: SCAN DE VULNERABILIDADES COM TRIVY ---
+#      - name: Scan Docker Image with Trivy
+#        uses: aquasecurity/trivy-action@master # Use a versão mais recente
+#        with:
+#          image-ref: ${{ steps.login-ecr.outputs.registry }}/pokedex-gui-frontend-repo:latest
+#          format: 'table'
+#          exit-code: '1' # Falha o pipeline se encontrar vulnerabilidades
+#          ignore-unfixed: true # Ignora vulnerabilidades que não possuem fix disponível
+#          severity: 'CRITICAL,HIGH' # Apenas reporte e falhe para CRITICAL e HIGH
+#      # --- FIM MÓDULO 5.1 ---
 
       # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA ECR ---
       - name: Push Image to Amazon ECR
@@ -98,9 +106,25 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
       # --- FIM MÓDULO 4.2 (Parte 2) ---
 
+      # --- AGORA DEPLOY DA INFRA DO ECS/FARGATE (APÓS O PUSH DA IMAGEM) ---
+      # Este passo criará/atualizará o ECR (se ainda não existir), o Cluster,
+      # a Task Definition e o Serviço ECS. Quando o serviço ECS tentar subir as tarefas,
+      # a imagem JÁ ESTARÁ no ECR.
+      - name: Deploy ECS/Fargate CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation-ecs.yml \
+            --stack-name PokedexGuiEcsStack \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              VpcId=vpc-0ef104b9a906559fd \
+              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
+      # --- FIM DEPLOY ---
+
       # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS (Opcional, mas útil para forçar nova implantação) ---
       # Este passo é para garantir que o ECS force uma nova implantação,
       # mesmo que a definição da tarefa não tenha mudado, apenas a imagem "latest".
+      # É especialmente útil para atualizações de código que não alteram o Task Definition.
       - name: Force new ECS service deployment
         run: |
           aws ecs update-service \
