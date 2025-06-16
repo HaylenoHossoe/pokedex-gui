@@ -5,8 +5,8 @@ name: Pokédex Gui - CI/CD Completo com sonarcloud
 on:
   push:
     branches:
-      - containers-ecs
-  workflow_dispatch: {}
+      - containers-ecs # Certifique-se de que esta é a branch que você está usando
+  workflow_dispatch: {} # Permite execução manual
 
 permissions:
   contents: read # Permite ler o código do repositório
@@ -27,31 +27,29 @@ jobs:
       - name: Instala dependências
         run: npm install
 
-#    # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD ---
-#      - name: Set up Node.js
-#        uses: actions/setup-node@v3
-#        with:
-#          node-version: '18' # Verifique a compatibilidade com seu projeto React
+#     # --- INÍCIO: INTEGRAÇÃO SONARQUBE CLOUD (Comentado, mas pode ser ativado se necessário) ---
+#     - name: Set up Node.js
+#       uses: actions/setup-node@v3
+#       with:
+#         node-version: '18' # Verifique a compatibilidade com seu projeto React
 
-#      - name: Run SonarQube Analysis
-#        uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
-#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
-#        with:
-#          projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
-#          # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
-#    # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
-
+#     - name: Run SonarQube Analysis
+#       uses: SonarSource/sonarcloud-github-action@v2.2 # AÇÃO OFICIAL PARA SONARCLOUD
+#       env:
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Necessário para a action interagir com o GitHub
+#         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Seu token pessoal do SonarCloud
+#       with:
+#         projectKey: HaylenoHossoe_pokedex-gui # SEU PROJECT KEY DO SONARCLOUD (CORRETO!)
+#         # organization: sua-organizacao-no-sonarcloud # Descomente e preencha se tiver uma organização
+#     # --- FIM: INTEGRAÇÃO SONARQUBE CLOUD ---
 
       - name: Executa testes
         run: npm run test
 
-      
-      - name: Build React App
+      - name: Build React App (para validação do build antes do Docker)
         run: npm run build
         env:
-          CI: false
+          CI: false # Desabilita o erro de "warnings as errors"
 
   # Job 2: Implantação Contínua (Deploy)
   deploy:
@@ -63,13 +61,8 @@ jobs:
       - name: Verifica o código
         uses: actions/checkout@v2
 
-      - name: Instala dependências
-        run: npm install
-      
-      - name: Build React App
-        run: npm run build
-        env:
-          CI: false
+      # Removido: "Instala dependências" e "Build React App" para evitar redundância,
+      # pois a imagem Docker já fará isso internamente.
 
       - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
@@ -79,22 +72,9 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-    # --- PASSO ANTIGO (DEPLOY S3): COMENTADO/REMOVIDO ---
-    # - name: Deploy CloudFormation Stack (Frontend S3)
-    #   run: |
-    #     aws cloudformation deploy \
-    #       --template-file cloudformation-frontend.yml \
-    #       --stack-name PokedexGuiFrontendStack \
-    #       --capabilities CAPABILITY_IAM \
-    #       --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
-
-    # --- PASSO ANTIGO (SYNC S3): REMOVIDO OU COMENTADO ---
-    #   - name: Sync S3 Bucket
-    #     run: |
-    #       aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
-    #       --delete 
-    
-    # --- NOVO PASSO: DEPLOY DA INFRA DO ECS/FARGATE ---
+      # --- NOVO PASSO: DEPLOY DA INFRA DO ECS/FARGATE (Se necessário atualizar a infra) ---
+      # Este passo deve vir ANTES do push da imagem Docker se o repositório ECR
+      # ou o cluster/serviço ECS ainda não existirem ou precisarem de atualização.
       - name: Deploy ECS/Fargate CloudFormation Stack
         run: |
           aws cloudformation deploy \
@@ -104,4 +84,52 @@ jobs:
             --parameter-overrides \
               VpcId=vpc-0ef104b9a906559fd \
               SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
-    # --- FIM NOVO PASSO ---
+      # --- FIM NOVO PASSO ---
+
+      # --- MÓDULO 4.1: LOGIN NO ECR ---
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # --- FIM MÓDULO 4.1 ---
+
+      # --- MÓDULO 4.2 (Parte 1): BUILD DA IMAGEM DOCKER ---
+      - name: Build Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: pokedex-gui-frontend-repo # Nome do repositório ECR
+          IMAGE_TAG: latest # Usamos 'latest' para simplicidade, conforme sua Task Definition
+        run: |
+          # Use '-f DOCKERFILE' se o nome do seu arquivo for EXATAMENTE 'DOCKERFILE' (maiúsculas).
+          # Se for 'Dockerfile' (padrão), remova '-f DOCKERFILE'.
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f DOCKERFILE .
+      # --- FIM MÓDULO 4.2 (Parte 1) ---
+
+      # --- MÓDULO 5.1: SCAN DE VULNERABILIDADES COM TRIVY ---
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@master # Use a versão mais recente
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/pokedex-gui-frontend-repo:latest
+          format: 'table'
+          exit-code: '1' # Falha o pipeline se encontrar vulnerabilidades
+          ignore-unfixed: true # Ignora vulnerabilidades que não possuem fix disponível
+          severity: 'CRITICAL,HIGH' # Apenas reporte e falhe para CRITICAL e HIGH
+      # --- FIM MÓDULO 5.1 ---
+
+      # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA ECR ---
+      - name: Push Image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: pokedex-gui-frontend-repo
+          IMAGE_TAG: latest
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      # --- FIM MÓDULO 4.2 (Parte 2) ---
+
+      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS ---
+      - name: Deploy Amazon ECS service
+        run: |
+          aws ecs update-service \
+            --cluster PokedexGui-Cluster \ # Nome do cluster que o CloudFormation criou
+            --service PokedexGui-Frontend-Service \ # Nome do serviço que o CloudFormation criou
+            --force-new-deployment # Força o ECS a puxar a nova imagem e reiniciar a task
+      # --- FIM MÓDULO 4.3 ---
