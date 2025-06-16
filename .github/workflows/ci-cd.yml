@@ -1,6 +1,6 @@
 # .github/workflows/ci-cd.yml
 
-name: Pokédex Gui - CI/CD completo com SonarQube Cloud 
+name: Pokédex Gui - CI/CD completo com SonarQubeCloud 
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: Instala dependências
         run: npm install
 
-      # SonarQube comentado...
+      # aqui ficava o workflou do SonarQube, movido para outro arquivo
 
       - name: Executa testes
         run: npm run test
