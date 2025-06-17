@@ -91,6 +91,6 @@ jobs:
       - name: Force new ECS service deployment
         run: |
           aws ecs update-service \
-            --cluster PokedexGui-Cluster \
-            --service PokedexGui-Frontend-Service \
+            --cluster pokedex-gui-cluster \
+            --service pokedex-gui-frontend-service \
             --force-new-deployment
