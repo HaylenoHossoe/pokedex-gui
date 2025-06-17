@@ -90,11 +90,6 @@ Resources:
       RetentionInDays: 7 # Retencao de logs por 7 dias (ajuste conforme necessario)
 
 Outputs:
-  # ECRRepositoryUri: # <-- REMOVA OU COMENTE ESTE BLOCO INTEIRO
-  #   Description: URI do repositorio ECR
-  #   Value: !GetAtt ECRRepository.RepositoryUri
-  #   Export:
-  #     Name: !Sub '${AppName}-ecr-repository-uri'
   ECSClusterName:
     Description: Nome do Cluster ECS
     Value: !Ref ECSCluster
@@ -105,8 +100,27 @@ Outputs:
     Value: !Ref ECSService
     Export:
       Name: !Sub '${AppName}-ecs-service-name'
-  FrontendPublicIp:
-    Description: IP publico do frontend ECS Fargate (se Enabled)
-    Value: !GetAtt ECSService.NetworkConfiguration.AwsvpcConfiguration.PublicIp
+  # FrontendPublicIp foi removido/comentado porque nao pode ser obtido diretamente do ECSService.
+  # Para obter o IP da task, voce precisaria ir no console do ECS, nas tarefas, ou usar a AWS CLI apos o deploy.   
+
+
+  # ECRRepositoryUri: # <-- REMOVA OU COMENTE ESTE BLOCO INTEIRO
+  #   Description: URI do repositorio ECR
+  #   Value: !GetAtt ECRRepository.RepositoryUri
+  #   Export:
+  #     Name: !Sub '${AppName}-ecr-repository-uri'
+#  ECSClusterName:
+#    Description: Nome do Cluster ECS
+#    Value: !Ref ECSCluster
+#    Export:
+#      Name: !Sub '${AppName}-ecs-cluster-name'
+#  ECSServiceName:
+#    Description: Nome do Servico ECS
+#    Value: !Ref ECSService
+#    Export:
+#      Name: !Sub '${AppName}-ecs-service-name'
+#  FrontendPublicIp:
+#    Description: IP publico do frontend ECS Fargate (se Enabled)
+#    Value: !GetAtt ECSService.NetworkConfiguration.AwsvpcConfiguration.PublicIp
     # Nota: O IP publico do Fargate nao e estatico e muda em cada deploy/reinicio da task.
     # Para um ambiente real, voce usaria um Load Balancer (ALB) e um CNAME.
