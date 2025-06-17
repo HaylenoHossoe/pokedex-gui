@@ -75,7 +75,7 @@ jobs:
         run: |
           # Use o seu nome de usuário do Docker Hub e o nome do repositório/imagem que deseja
           # Ex: docker build -t seu_usuario_dockerhub/pokedex-gui-frontend-repo:latest .
-          docker build -t seu_usuario_dockerhub/pokedex-gui-frontend-repo:latest .
+          docker build -t hayleno/pokedex-gui-frontend-repo:latest .
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
       # Scan de Vulnerabilidades (se for usar o Trivy, lembre-se de mudar a imagem de referência)
