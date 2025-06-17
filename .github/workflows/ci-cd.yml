@@ -1,47 +1,38 @@
 # .github/workflows/ci-cd.yml
 
-name: Pokédex Gui - CI/CD completo com SonarQubeCloud 
+name: Pokédex Gui - CI/CD completo com SonarQube Cloud 
 
 on:
   push:
     branches:
-      - containers-ecs # Certifique-se de que esta é a branch que você está usando
-  workflow_dispatch: {} # Permite execução manual
+      - containers-ecs
+  workflow_dispatch: {}
 
 permissions:
-  contents: read # Permite ler o código do repositório
-  id-token: write # Adicionar esta permissão para SonarCloud
+  contents: read
+  id-token: write
 
 jobs:
-  # Job 1: Integração Contínua (Teste e Build)
   test_and_build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Verifica o código
         uses: actions/checkout@v2
         with:
-          # Fetch all history for SonarQube analysis
           fetch-depth: 0 
-
       - name: Instala dependências
         run: npm install
-
-      # aqui ficava o workflou do SonarQube, movido para outro arquivo
-
       - name: Executa testes
         run: npm run test
-
       - name: Build React App (para validação do build antes do Docker)
         run: npm run build
         env:
-          CI: false # Desabilita o erro de "warnings as errors"
+          CI: false
 
-  # Job 2: Implantação Contínua (Deploy)
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: test_and_build # Este job só roda se "test_and_build" for bem-sucedido
+    needs: test_and_build
 
     steps:
       - name: Verifica o código
@@ -55,9 +46,10 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # --- PASSO CRUCIAL: DEPLOY DA INFRA DO ECS/FARGATE (Deve vir PRIMEIRO para criar o ECR) ---
-      # Este passo criará/atualizará o ECR (se ainda não existir), o Cluster,
-      # a Task Definition e o Serviço ECS.
+      # --- PASSO CRUCIAL: DEPLOY DA INFRA DO ECS/FARGATE ---
+      # IMPORTANTE: A stack CloudFormation não precisa mais criar o repositório ECR.
+      # Se o seu 'cloudformation-ecs.yml' contém um recurso ECR, você precisará removê-lo (veja o próximo item).
+      # Este passo criará/atualizará o Cluster ECS, Task Definition e Serviço.
       - name: Deploy ECS/Fargate CloudFormation Stack
         run: |
           set -x # Mantenha isso para depuração adicional
@@ -70,37 +62,32 @@ jobs:
               SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
       # --- FIM DEPLOY INFRA ---
 
-      # --- MÓDULO 4.1: LOGIN NO ECR (Agora o repositório ECR DEVE existir) ---
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      # --- FIM MÓDULO 4.1 ---
+      # --- NOVO MÓDULO: LOGIN NO DOCKER HUB ---
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3 # Use a action oficial para login no Docker Hub
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      # --- FIM NOVO MÓDULO ---
 
-      # --- MÓDULO 4.2 (Parte 1): BUILD DA IMAGEM DOCKER ---
+      # --- MÓDULO 4.2 (Parte 1): BUILD DA IMAGEM DOCKER (com nome para Docker Hub) ---
       - name: Build Docker Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: pokedex-gui-frontend-repo # Nome do repositório ECR
-          IMAGE_TAG: latest # Usamos 'latest' para simplicidade, conforme sua Task Definition
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # Use o seu nome de usuário do Docker Hub e o nome do repositório/imagem que deseja
+          # Ex: docker build -t seu_usuario_dockerhub/pokedex-gui-frontend-repo:latest .
+          docker build -t seu_usuario_dockerhub/pokedex-gui-frontend-repo:latest .
       # --- FIM MÓDULO 4.2 (Parte 1) ---
 
-      # Trivy Scan (comentado)
+      # Scan de Vulnerabilidades (se for usar o Trivy, lembre-se de mudar a imagem de referência)
 
-      # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA ECR ---
-      - name: Push Image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: pokedex-gui-frontend-repo
-          IMAGE_TAG: latest
+      # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA DOCKER HUB ---
+      - name: Push Image to Docker Hub
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # Ex: docker push hayleno/pokedex-gui-frontend-repo:latest
+          docker push hayleno/pokedex-gui-frontend-repo:latest
       # --- FIM MÓDULO 4.2 (Parte 2) ---
 
-      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS (Opcional, mas útil para forçar nova implantação) ---
-      # Este passo é para garantir que o ECS force uma nova implantação,
-      # mesmo que a definição da tarefa não tenha mudado, apenas a imagem "latest".
+      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS (para puxar a nova imagem do Docker Hub) ---
       - name: Force new ECS service deployment
         run: |
           aws ecs update-service \

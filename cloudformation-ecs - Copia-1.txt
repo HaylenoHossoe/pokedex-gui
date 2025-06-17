@@ -14,14 +14,14 @@ Parameters:
     Description: Lista de IDs das Subnets para o ECS Fargate.
 
 Resources:
-# 1. Repositorio ECR para a imagem Docker - REMOVIDO, AGORA USAMOS DOCKER HUB
-# ECRRepository:
-#   Type: AWS::ECR::Repository
-#   Properties:
-#     RepositoryName: !Sub '${AppName}-frontend-repo'
-#     ImageScanningConfiguration:
-#       ScanOnPush: true
-#     ImageTagMutability: MUTABLE
+  # 1. Repositorio ECR para a imagem Docker
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${AppName}-frontend-repo'
+      ImageScanningConfiguration:
+        ScanOnPush: true # Habilita o scan de vulnerabilidades ao fazer push da imagem
+      ImageTagMutability: MUTABLE # Ou IMMUTABLE para maior seguranca (mas pode complicar o deploy)
 
   # 2. Cluster ECS
   ECSCluster:
@@ -30,6 +30,8 @@ Resources:
       ClusterName: !Sub '${AppName}-cluster'
 
   # 3. Task Definition ECS (define o container)
+  # Note: Este e um exemplo basico. Em producao, voce passaria mais configs,
+  # como variaveis de ambiente, limites de CPU/Memoria mais precisos, etc.
   ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -39,11 +41,13 @@ Resources:
       NetworkMode: awsvpc # Necessario para Fargate
       RequiresCompatibilities:
         - FARGATE
+      # ATENCAO: Usando a LabRole para ExecutionRoleArn e TaskRoleArn
+      # Verifique se a LabRole possui as permissoes necessarias para ECS (pull de imagem, logs, etc.)
       ExecutionRoleArn: 'arn:aws:iam::085103152871:role/LabRole'
-      TaskRoleArn: 'arn:aws:iam::085103152871:role/LabRole'
+      TaskRoleArn: 'arn:aws:iam::085103152871:role/LabRole' # Usando a mesma role, ja que a criacao de novas roles eh restrita
       ContainerDefinitions:
         - Name: !Sub '${AppName}-frontend'
-          Image: hayleno/pokedex-gui-frontend-repo:latest # DockerHub
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-frontend-repo:latest' # Sera atualizada pelo pipeline
           PortMappings:
             - ContainerPort: 80 # Porta que o Nginx esta escutando dentro do container
               Protocol: tcp
@@ -82,6 +86,11 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0 # Permite acesso de qualquer IP na porta 80 (HTTP)
 
+  # REMOVIDOS:
+  # As definicoes de AWS::IAM::Role para ECSTaskExecutionRole e ECSTaskRole
+  # foram removidas, pois seu ambiente AWS Academy nao permite a criacao dessas roles.
+  # Em vez disso, a LabRole sera usada.
+
   # 6. CloudWatch Log Group
   CloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
@@ -90,11 +99,11 @@ Resources:
       RetentionInDays: 7 # Retencao de logs por 7 dias (ajuste conforme necessario)
 
 Outputs:
-  # ECRRepositoryUri: # <-- REMOVA OU COMENTE ESTE BLOCO INTEIRO
-  #   Description: URI do repositorio ECR
-  #   Value: !GetAtt ECRRepository.RepositoryUri
-  #   Export:
-  #     Name: !Sub '${AppName}-ecr-repository-uri'
+  ECRRepositoryUri:
+    Description: URI do repositorio ECR
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: !Sub '${AppName}-ecr-repository-uri'
   ECSClusterName:
     Description: Nome do Cluster ECS
     Value: !Ref ECSCluster
