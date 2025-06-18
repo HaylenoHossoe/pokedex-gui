@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read # Adicionado para SonarCloud em PRs
   id-token: write
 
 jobs:
@@ -30,38 +29,10 @@ jobs:
         env:
           CI: false
 
-  sonarcloud_analysis: # NOVO JOB PARA SONARCLOUD
-    runs-on: ubuntu-latest
-    needs: test_and_build # Garante que os testes e o build do app já tenham rodado
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Run SonarCloud Analysis
-        uses: SonarSource/sonarcloud-github-action@v2.2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args:
-            -Dsonar.projectKey=HaylenoHossoe_pokedex-gui
-            -Dsonar.organization=haylenohossoe
-            # -Dsonar.sources=. # Descomente e ajuste se o SonarCloud nao estiver pegando os fontes automaticamente
-            # -Dsonar.tests=src # Descomente e ajuste se o SonarCloud nao estiver pegando os testes automaticamente
-            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Descomente e ajuste
-          projectBaseDir: .
-
-
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: [test_and_build, sonarcloud_analysis] # Agora depende também da análise do SonarCloud
+    needs: test_and_build
 
     steps:
       - name: Verifica o código
@@ -76,9 +47,12 @@ jobs:
           aws-region: us-east-1
 
       # --- PASSO CRUCIAL: DEPLOY DA INFRA DO ECS/FARGATE ---
+      # IMPORTANTE: A stack CloudFormation não precisa mais criar o repositório ECR.
+      # Se o seu 'cloudformation-ecs.yml' contém um recurso ECR, você precisará removê-lo (veja o próximo item).
+      # Este passo criará/atualizará o Cluster ECS, Task Definition e Serviço.
       - name: Deploy ECS/Fargate CloudFormation Stack
         run: |
-          set -x
+          set -x # Mantenha isso para depuração adicional
           aws cloudformation deploy \
             --template-file cloudformation-ecs.yml \
             --stack-name PokedexGuiEcsStack \
@@ -86,35 +60,34 @@ jobs:
             --parameter-overrides \
               VpcId=vpc-0ef104b9a906559fd \
               SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
+      # --- FIM DEPLOY INFRA ---
 
-      # --- LOGIN NO DOCKER HUB ---
+      # --- NOVO MÓDULO: LOGIN NO DOCKER HUB ---
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3 # Use a action oficial para login no Docker Hub
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      # --- FIM NOVO MÓDULO ---
 
-      # --- BUILD DA IMAGEM DOCKER (com nome para Docker Hub) ---
+      # --- MÓDULO 4.2 (Parte 1): BUILD DA IMAGEM DOCKER (com nome para Docker Hub) ---
       - name: Build Docker Image
         run: |
+          # Use o seu nome de usuário do Docker Hub e o nome do repositório/imagem que deseja
+          # Ex: docker build -t seu_usuario_dockerhub/pokedex-gui-frontend-repo:latest .
           docker build -t hayleno/pokedex-gui-frontend-repo:latest .
+      # --- FIM MÓDULO 4.2 (Parte 1) ---
 
-      # --- SCAN DE VULNERABILIDADES DA IMAGEM (TRIVY) --- # NOVO PASSO DE SEGURANÇA
-      - name: Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@master # Usar uma tag de versão específica é mais seguro, como v0.x.x
-        with:
-          image-ref: 'hayleno/pokedex-gui-frontend-repo:latest'
-          format: 'table' # ou 'sarif' para integrar com o GitHub Security tab
-          exit-code: '1' # Falhar o build se vulnerabilidades criticas/altas forem encontradas
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH' # Ajuste conforme sua política de segurança
+      # Scan de Vulnerabilidades (se for usar o Trivy, lembre-se de mudar a imagem de referência)
 
-      # --- PUSH DA IMAGEM DOCKER PARA DOCKER HUB ---
+      # --- MÓDULO 4.2 (Parte 2): PUSH DA IMAGEM DOCKER PARA DOCKER HUB ---
       - name: Push Image to Docker Hub
         run: |
+          # Ex: docker push hayleno/pokedex-gui-frontend-repo:latest
           docker push hayleno/pokedex-gui-frontend-repo:latest
+      # --- FIM MÓDULO 4.2 (Parte 2) ---
 
-      # --- ATUALIZAR O SERVIÇO ECS (para puxar a nova imagem do Docker Hub) ---
+      # --- MÓDULO 4.3: ATUALIZAR O SERVIÇO ECS (para puxar a nova imagem do Docker Hub) ---
       - name: Force new ECS service deployment
         run: |
           aws ecs update-service \
