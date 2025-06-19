@@ -1,55 +1,76 @@
 # .github/workflows/ci-cd.yml
 
-name: Pokédex Gui - CI/CD
+# CI/CD completo com SonarCloud, DockerHub e Trivy
+name: Pokédex Gui
 
 on:
   push:
     branches:
-      - main # Dispara o workflow a cada push na branch main
-  workflow_dispatch: {} # Permite execução manual
+      - main
+  workflow_dispatch: {}
 
 permissions:
-  contents: read # Permite ler o código do repositório
+  contents: read
+  pull-requests: read
+  id-token: write
 
 jobs:
-  # Job 1: Integração Contínua (Teste e Build)
-  test_and_build:
+  # Job: testes e build da aplicação
+  testes_e_build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Verifica o código
+      - name: Verificar o Código
         uses: actions/checkout@v2
-
-      - name: Instala dependências
+        with:
+          fetch-depth: 0 
+      - name: Instalar Dependências
         run: npm install
-
-      - name: Executa testes
+      - name: Executar Testes
         run: npm run test
-
-      - name: Build React App
-        run: npm run build
-        env:
-          CI: false # Desabilita o erro de "warnings as errors"
-
-  # Job 2: Implantação Contínua (Deploy)
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production
-    needs: test_and_build # Este job só roda se "test_and_build" for bem-sucedido
-
-    steps:
-      - name: Verifica o código
-        uses: actions/checkout@v2
-
-      - name: Instala dependências
-        run: npm install
-      
-      - name: Build React App
+      - name: Fazer Build do Aplicativo React # validação do build antes do Docker
         run: npm run build
         env:
           CI: false
 
-      - name: Configure AWS Credentials for Academy
+  # Job: análise de código com SonarCloud
+  analise_sonarcloud:
+    runs-on: ubuntu-latest
+    needs: testes_e_build # garante que os testes e o build do app já tenham rodado
+    steps:
+      - name: Fazer Checkout do Código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Executar Análise SonarCloud
+        uses: SonarSource/sonarcloud-github-action@v2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args:
+            -Dsonar.projectKey=HaylenoHossoe_pokedex-gui
+            -Dsonar.organization=haylenohossoe
+            # -Dsonar.sources=. # descomentar e ajustar se o SonarCloud nao estiver pegando os fontes automaticamente
+            # -Dsonar.tests=src # descomentar e ajustar se o SonarCloud nao estiver pegando os testes automaticamente
+            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # descomentar e ajustar caso necessário
+          projectBaseDir: .
+
+  # Job: implantação (deploy)
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [testes_e_build, analise_sonarcloud] # depende dos jobs anteriores
+
+    steps:
+      - name: Verificar o Código
+        uses: actions/checkout@v2
+
+      - name: Configurar Credenciais AWS para a Academy
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -57,16 +78,49 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      - name: Deploy CloudFormation Stack (Frontend S3)
+      # deploy da infraestrutura AWS ECS/Fargate
+      - name: Implantar Stack CloudFormation ECS/Fargate
         run: |
+          set -x
           aws cloudformation deploy \
-            --template-file cloudformation-frontend.yml \
-            --stack-name PokedexGuiFrontendStack \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides BucketName=pokedex-gui-frontend-bucket-2025-05-30-2150
+            --template-file cloudformation-ecs.yml \
+            --stack-name PokedexGuiEcsStack \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              VpcId=vpc-0ef104b9a906559fd \
+              SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
 
-      - name: Sync S3 Bucket
+      # login no DockerHub
+      - name: Fazer Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # build da imagem Docker (com nome para Docker Hub)
+      - name: Fazer Build da Imagem Docker
         run: |
-          # O caminho agora é diretamente 'build/' pois o build foi refeito nesta job
-          aws s3 sync ./build/ s3://$(aws cloudformation describe-stacks --stack-name PokedexGuiFrontendStack --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' --output text) \
-          --delete # --delete remove arquivos que não existem mais no build
+          docker build -t hayleno/pokedex-gui-frontend-repo:latest .
+
+      # verredura (scan) de vulnerabilidades da imagem com o Trivy
+      - name: Escanear Imagem Docker com Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'hayleno/pokedex-gui-frontend-repo:latest'
+          format: 'table'
+          exit-code: '1'
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # enviar imagem Docker para o DockerHub
+      - name: Enviar Imagem para o DockerHub
+        run: |
+          docker push hayleno/pokedex-gui-frontend-repo:latest
+
+      # atualizar o serviço ECS (para puxar a nova imagem do DockerHub)
+      - name: Forçar Novo Deploy do Serviço ECS
+        run: |
+          aws ecs update-service \
+            --cluster pokedex-gui-cluster \
+            --service pokedex-gui-frontend-service \
+            --force-new-deployment

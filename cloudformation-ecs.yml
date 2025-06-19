@@ -1,0 +1,127 @@
+# ./cloudformation-ecs.yml
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation - Template da infraestrutura ECS/Fargate para o app Pokedex Gui.
+
+Parameters:
+  AppName:
+    Type: String
+    Default: pokedex-gui
+    Description: Nome do app (usado para nomear recursos).
+  VpcId: # Parametro para o ID da VPC existente
+    Type: String
+    Description: O ID da VPC onde o cluster ECS sera criado.
+  SubnetIds: # Parametro para os IDs das Subnets existentes (pelo menos duas para Fargate)
+    Type: CommaDelimitedList
+    Description: Lista de IDs das Subnets para o ECS Fargate.
+
+Resources:
+# 1. Repositorio ECR para a imagem Docker - SUBSTITUÍDO POR DOCKERHUB DEVIDO A LIMITAÇÕES DA AWS ACADEMY
+# ECRRepository:
+#   Type: AWS::ECR::Repository
+#   Properties:
+#     RepositoryName: !Sub '${AppName}-frontend-repo'
+#     ImageScanningConfiguration:
+#       ScanOnPush: true
+#     ImageTagMutability: MUTABLE
+
+  # 2. Cluster ECS
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${AppName}-cluster'
+
+  # 3. Task Definition ECS (define o container)
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${AppName}-Frontend-Task'
+      Cpu: '256' # 0.25 vCPU
+      Memory: '512' # 512 MB
+      NetworkMode: awsvpc # Necessario para Fargate
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: 'arn:aws:iam::085103152871:role/LabRole'
+      TaskRoleArn: 'arn:aws:iam::085103152871:role/LabRole'
+      ContainerDefinitions:
+        - Name: !Sub '${AppName}-frontend'
+          Image: hayleno/pokedex-gui-frontend-repo:latest # DockerHub
+          PortMappings:
+            - ContainerPort: 80 # Porta que o Nginx esta escutando dentro do container
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogGroup # Grupo de logs
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: !Sub '${AppName}-frontend'
+
+  # 4. Servico ECS (mantem o numero desejado de instancias da task)
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: !Sub '${AppName}-frontend-service'
+      TaskDefinition: !Ref ECSTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1 # Numero de instancias do container
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED # Habilita IP publico para acesso direto (para laboratorio)
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !GetAtt FrontendSecurityGroup.GroupId # Grupo de seguranca para o container
+
+  # 5. Grupo de Seguranca para o Servico ECS (permite trafego HTTP de entrada)
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Permite trafego HTTP para o frontend Pokedex Gui
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 # Permite acesso de qualquer IP na porta 80 (HTTP)
+
+  # 6. CloudWatch Log Group
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/${AppName}-frontend'
+      RetentionInDays: 7 # Retencao de logs por 7 dias
+
+Outputs:
+  ECSClusterName:
+    Description: Nome do Cluster ECS
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub '${AppName}-ecs-cluster-name'
+  ECSServiceName:
+    Description: Nome do Servico ECS
+    Value: !Ref ECSService
+    Export:
+      Name: !Sub '${AppName}-ecs-service-name'
+# FrontendPublicIp foi removido porque nao pode ser obtido diretamente do ECSService.
+# Para obter o IP da task, buscar no console do ECS, nas tarefas, ou usar a AWS CLI apos o deploy.   
+
+#  ECRRepositoryUri:
+#    Description: URI do repositorio ECR
+#    Value: !GetAtt ECRRepository.RepositoryUri
+#    Export:
+#      Name: !Sub '${AppName}-ecr-repository-uri'
+#  ECSClusterName:
+#    Description: Nome do Cluster ECS
+#    Value: !Ref ECSCluster
+#    Export:
+#      Name: !Sub '${AppName}-ecs-cluster-name'
+#  ECSServiceName:
+#    Description: Nome do Servico ECS
+#    Value: !Ref ECSService
+#    Export:
+#      Name: !Sub '${AppName}-ecs-service-name'
+#  FrontendPublicIp:
+#    Description: IP publico do frontend ECS Fargate (se Enabled)
+#    Value: !GetAtt ECSService.NetworkConfiguration.AwsvpcConfiguration.PublicIp
+
+# O IP publico do Fargate nao e estatico e muda em cada deploy/reinicio da task.
