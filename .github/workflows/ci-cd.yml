@@ -55,9 +55,9 @@ jobs:
           args:
             -Dsonar.projectKey=HaylenoHossoe_pokedex-gui
             -Dsonar.organization=haylenohossoe
-            # -Dsonar.sources=. # Descomente e ajuste se o SonarCloud nao estiver pegando os fontes automaticamente
-            # -Dsonar.tests=src # Descomente e ajuste se o SonarCloud nao estiver pegando os testes automaticamente
-            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Descomente e ajuste
+            # -Dsonar.sources=. # descomentar e ajustar se o SonarCloud nao estiver pegando os fontes automaticamente
+            # -Dsonar.tests=src # descomentar e ajustar se o SonarCloud nao estiver pegando os testes automaticamente
+            # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # descomentar e ajustar caso necessário
           projectBaseDir: .
 
   # Job: implantação (deploy)
