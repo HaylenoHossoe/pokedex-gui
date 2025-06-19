@@ -15,39 +15,37 @@ permissions:
   id-token: write
 
 jobs:
-  # Job: testes e build da aplicação
   testes_e_build:
     runs-on: ubuntu-latest
     steps:
-      - name: Verificar o Código
+      - name: Verifica o código
         uses: actions/checkout@v2
         with:
           fetch-depth: 0 
-      - name: Instalar Dependências
+      - name: Instala dependências
         run: npm install
-      - name: Executar Testes
+      - name: Executa testes
         run: npm run test
-      - name: Fazer Build do Aplicativo React # validação do build antes do Docker
+      - name: Build React App # validação do build antes do Docker
         run: npm run build
         env:
           CI: false
 
-  # Job: análise de código com SonarCloud
-  analise_sonarcloud:
+  analise_sonarcloud: # job para análise do SonarCloud
     runs-on: ubuntu-latest
-    needs: testes_e_build # garante que os testes e o build do app já tenham rodado
+    needs: testes_e_build # Garante que os testes e o build do app já tenham rodado
     steps:
-      - name: Fazer Checkout do Código
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0 
 
-      - name: Configurar Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Executar Análise SonarCloud
+      - name: Run SonarCloud Analysis
         uses: SonarSource/sonarcloud-github-action@v2.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -60,17 +58,17 @@ jobs:
             # -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx # Descomente e ajuste
           projectBaseDir: .
 
-  # Job: implantação (deploy)
+
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    needs: [testes_e_build, analise_sonarcloud] # depende dos jobs anteriores
+    needs: [testes_e_build, analise_sonarcloud] # Agora depende também da análise do SonarCloud
 
     steps:
-      - name: Verificar o Código
+      - name: Verifica o código
         uses: actions/checkout@v2
 
-      - name: Configurar Credenciais AWS para a Academy
+      - name: Configure AWS Credentials for Academy
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -78,8 +76,8 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # deploy da infraestrutura AWS ECS/Fargate
-      - name: Implantar Stack CloudFormation ECS/Fargate
+      # --- PASSO CRUCIAL: DEPLOY DA INFRA DO ECS/FARGATE ---
+      - name: Deploy ECS/Fargate CloudFormation Stack
         run: |
           set -x
           aws cloudformation deploy \
@@ -90,35 +88,35 @@ jobs:
               VpcId=vpc-0ef104b9a906559fd \
               SubnetIds=subnet-0fc5a99dc1a158475,subnet-096e1bc5f6623b31f
 
-      # login no DockerHub
-      - name: Fazer Login no Docker Hub
+      # --- LOGIN NO DOCKER HUB ---
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # build da imagem Docker (com nome para Docker Hub)
-      - name: Fazer Build da Imagem Docker
+      # --- BUILD DA IMAGEM DOCKER (com nome para Docker Hub) ---
+      - name: Build Docker Image
         run: |
           docker build -t hayleno/pokedex-gui-frontend-repo:latest .
 
-      # verredura (scan) de vulnerabilidades da imagem com o Trivy
-      - name: Escanear Imagem Docker com Trivy
-        uses: aquasecurity/trivy-action@master
+      # --- SCAN DE VULNERABILIDADES DA IMAGEM (TRIVY) --- # NOVO PASSO DE SEGURANÇA
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@master # Usar uma tag de versão específica é mais seguro, como v0.x.x
         with:
           image-ref: 'hayleno/pokedex-gui-frontend-repo:latest'
-          format: 'table'
-          exit-code: '1'
+          format: 'table' # ou 'sarif' para integrar com o GitHub Security tab
+          exit-code: '1' # Falhar o build se vulnerabilidades criticas/altas forem encontradas
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH' # Ajuste conforme sua política de segurança
 
-      # enviar imagem Docker para o DockerHub
-      - name: Enviar Imagem para o DockerHub
+      # --- PUSH DA IMAGEM DOCKER PARA DOCKER HUB ---
+      - name: Push Image to Docker Hub
         run: |
           docker push hayleno/pokedex-gui-frontend-repo:latest
 
-      # atualizar o serviço ECS (para puxar a nova imagem do DockerHub)
-      - name: Forçar Novo Deploy do Serviço ECS
+      # --- ATUALIZAR O SERVIÇO ECS (para puxar a nova imagem do Docker Hub) ---
+      - name: Force new ECS service deployment
         run: |
           aws ecs update-service \
             --cluster pokedex-gui-cluster \

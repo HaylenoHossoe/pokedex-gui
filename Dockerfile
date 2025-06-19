@@ -1,4 +1,4 @@
-# Dockerfile para a aplicação React
+# Dockerfile para a aplicação React Pokédex Gui
 
 # Estágio de build
 # Usa a imagem oficial do Node.js para buildar a aplicação React
@@ -6,7 +6,7 @@ FROM node:alpine AS build-stage
 
 WORKDIR /app
 
-# Adicione estas linhas para garantir que o Alpine esteja completamente atualizado neste estágio
+# Garante que o Alpine esteja completamente atualizado neste estágio
 RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 
 # Copia o package.json e package-lock.json (se existir) para instalar dependências
@@ -27,7 +27,7 @@ FROM nginx:stable-alpine AS production-stage
 # Adicione estas linhas para garantir que o Alpine esteja completamente atualizado neste estágio
 RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 
-# Remova a configuração padrão do Nginx
+# Remove a configuração padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copia o build da aplicação React do estágio anterior para o diretório de serviço do Nginx

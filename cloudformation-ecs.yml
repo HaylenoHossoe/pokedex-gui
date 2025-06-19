@@ -1,7 +1,7 @@
 # ./cloudformation-ecs.yml
 
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS CloudFormation template for ECS/Fargate infrastructure for Pokedex Gui.
+Description: AWS CloudFormation - Template da infraestrutura ECS/Fargate para o app Pokedex Gui.
 
 Parameters:
   AppName:
@@ -16,7 +16,7 @@ Parameters:
     Description: Lista de IDs das Subnets para o ECS Fargate.
 
 Resources:
-# 1. Repositorio ECR para a imagem Docker - REMOVIDO, AGORA USAMOS DOCKER HUB
+# 1. Repositorio ECR para a imagem Docker - SUBSTITUÍDO POR DOCKERHUB DEVIDO A LIMITAÇÕES DA AWS ACADEMY
 # ECRRepository:
 #   Type: AWS::ECR::Repository
 #   Properties:
@@ -64,7 +64,7 @@ Resources:
       ServiceName: !Sub '${AppName}-frontend-service'
       TaskDefinition: !Ref ECSTaskDefinition
       LaunchType: FARGATE
-      DesiredCount: 1 # Numero de instancias do seu container
+      DesiredCount: 1 # Numero de instancias do container
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED # Habilita IP publico para acesso direto (para laboratorio)
@@ -89,7 +89,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/ecs/${AppName}-frontend'
-      RetentionInDays: 7 # Retencao de logs por 7 dias (ajuste conforme necessario)
+      RetentionInDays: 7 # Retencao de logs por 7 dias
 
 Outputs:
   ECSClusterName:
@@ -102,15 +102,14 @@ Outputs:
     Value: !Ref ECSService
     Export:
       Name: !Sub '${AppName}-ecs-service-name'
-  # FrontendPublicIp foi removido/comentado porque nao pode ser obtido diretamente do ECSService.
-  # Para obter o IP da task, voce precisaria ir no console do ECS, nas tarefas, ou usar a AWS CLI apos o deploy.   
+# FrontendPublicIp foi removido porque nao pode ser obtido diretamente do ECSService.
+# Para obter o IP da task, buscar no console do ECS, nas tarefas, ou usar a AWS CLI apos o deploy.   
 
-
-  # ECRRepositoryUri: # <-- REMOVA OU COMENTE ESTE BLOCO INTEIRO
-  #   Description: URI do repositorio ECR
-  #   Value: !GetAtt ECRRepository.RepositoryUri
-  #   Export:
-  #     Name: !Sub '${AppName}-ecr-repository-uri'
+#  ECRRepositoryUri:
+#    Description: URI do repositorio ECR
+#    Value: !GetAtt ECRRepository.RepositoryUri
+#    Export:
+#      Name: !Sub '${AppName}-ecr-repository-uri'
 #  ECSClusterName:
 #    Description: Nome do Cluster ECS
 #    Value: !Ref ECSCluster
@@ -124,5 +123,5 @@ Outputs:
 #  FrontendPublicIp:
 #    Description: IP publico do frontend ECS Fargate (se Enabled)
 #    Value: !GetAtt ECSService.NetworkConfiguration.AwsvpcConfiguration.PublicIp
-    # Nota: O IP publico do Fargate nao e estatico e muda em cada deploy/reinicio da task.
-    # Para um ambiente real, voce usaria um Load Balancer (ALB) e um CNAME.
+
+# O IP publico do Fargate nao e estatico e muda em cada deploy/reinicio da task.
