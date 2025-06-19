@@ -2,10 +2,12 @@
 
 # Estágio de build
 # Usa a imagem oficial do Node.js para buildar a aplicação React
-# Node.js 20 LTS na última versão compatível do Alpine
-FROM node:20-alpine AS build-stage 
+FROM node:20-alpine AS build-stage
 
 WORKDIR /app
+
+# Adicione estas linhas para garantir que o Alpine esteja completamente atualizado neste estágio
+RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 
 # Copia o package.json e package-lock.json (se existir) para instalar dependências
 COPY package*.json ./
@@ -20,8 +22,10 @@ RUN npm run build
 
 # Estágio de produção
 # Usa uma imagem leve do Nginx para servir os arquivos estáticos
-# Última versão estável do Nginx na última versão estável do Alpine
 FROM nginx:stable-alpine AS production-stage
+
+# Adicione estas linhas para garantir que o Alpine esteja completamente atualizado neste estágio
+RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 
 # Remova a configuração padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf
