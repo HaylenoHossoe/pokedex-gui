@@ -6,7 +6,7 @@ name: Pokédex Gui
 on:
   push:
     branches:
-      - containers-ecs
+      - main
   workflow_dispatch: {}
 
 permissions:
