@@ -2,7 +2,8 @@
 
 # Estágio de build
 # Usa a imagem oficial do Node.js para buildar a aplicação React
-FROM node:20-alpine AS build-stage # Node.js 20 LTS na última versão compatível do Alpine
+# Node.js 20 LTS na última versão compatível do Alpine
+FROM node:20-alpine AS build-stage 
 
 WORKDIR /app
 
@@ -19,7 +20,8 @@ RUN npm run build
 
 # Estágio de produção
 # Usa uma imagem leve do Nginx para servir os arquivos estáticos
-FROM nginx:stable-alpine AS production-stage # Última versão estável do Nginx na última versão estável do Alpine
+# Última versão estável do Nginx na última versão estável do Alpine
+FROM nginx:stable-alpine AS production-stage
 
 # Remova a configuração padrão do Nginx
 RUN rm /etc/nginx/conf.d/default.conf
