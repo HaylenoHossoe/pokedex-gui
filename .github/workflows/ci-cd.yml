@@ -1,6 +1,6 @@
 # .github/workflows/ci-cd.yml
 
-# CI/CD completo com SonarCloud, DockerHub e Trivy
+# CI/CD completo do app Pokédex Gui com SonarCloud, DockerHub e Trivy
 name: Pokédex Gui
 
 on:
