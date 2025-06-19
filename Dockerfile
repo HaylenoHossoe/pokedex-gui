@@ -2,7 +2,7 @@
 
 # Estágio de build
 # Usa a imagem oficial do Node.js para buildar a aplicação React
-FROM node:20-alpine AS build-stage
+FROM node:alpine AS build-stage
 
 WORKDIR /app
 
